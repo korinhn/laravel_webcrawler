@@ -8,6 +8,7 @@ The links are stored locally using mongoDB.
 
 - PHP v7.4.15
 - LARAVEL v8.83.27
+- MongoDB v3.8.5
 
 ## License
 
