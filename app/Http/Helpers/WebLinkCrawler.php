@@ -39,10 +39,9 @@ class WebLinkCrawler{
         $this->startTime = microtime(true);
 
         if($this->validateRootUrl($url)){
-            
             $this->crawler($this->rootUrl, $depth);
             $this->midTime = microtime(true);
-            $this->removeDeadLinks();
+            $this->removeDeadLinks(); //can be disabled to shorten process time
         };
         
         $this->endTime = microtime(true);
@@ -115,14 +114,12 @@ class WebLinkCrawler{
             return false;
         }
         
-        /* Get the accepted http respone code */    
+        /* Get the accepted http respone code (as stated in statusWhitelist) */    
         $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE); 
         if(!in_array($statusCode, $this->statusWhitelist)){
             return false;
         }
-
-        /* Request success */
-        return true;
+        return true; //on success
     }
 
     /**
@@ -133,7 +130,7 @@ class WebLinkCrawler{
     private function linkExists($link){
         foreach($this->linkResults as $linkResult){
             if($linkResult === $link || $linkResult === $link .'/'){
-                return true;
+                return true; //link is duplicate
             }
         }
         return false;
@@ -188,12 +185,7 @@ class WebLinkCrawler{
                 return false;
             }
         }
-
-        #4
-        /* if(!$this->isLiveUrl($link)){
-            return false;
-        } */
-        return true;
+        return true; //on success
     }
 
     /**
@@ -242,9 +234,8 @@ class WebLinkCrawler{
                 $this->linkResults[] = $href;
             }
             
+            /* Drill down */
             $this->crawler($href, $depth - 1);
         }
     }
-
-
 }

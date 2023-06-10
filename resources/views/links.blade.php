@@ -52,25 +52,29 @@
         <table class="table table-striped">
             <thead>
                 <tr class="table-primary">
-                    <th colspan="2">Root URL: {{ $domain }}</th>
+                    <th colspan="2">Root URL: {{ $domain }} | Total: {{ $weblinks->total() }} links</th>
                 <tr>
             <thead>
             <tbody>
-                {{-- @foreach ($weblinks as $link)
+                @foreach ($weblinks as $link)
                     <tr>
-                        <td>{{ ++$i }}</td>
+                        <td>{{ ++$idx }}</td>
                         <td><a href="<?=$link['web_link']?>"><?=$link['web_link']?></a></td>
                     </tr>
-                @endforeach --}}
-                @for($idx = 0; $idx < $weblinks->count(); $idx++)
-                    <tr>
-                        <td>{{ $idx+1 }}</td>
-                        <td><a href="<?=$weblinks[$idx]['web_link']?>"><?=$weblinks[$idx]['web_link']?></a></td>
-                    </tr>
-                @endfor
+                @endforeach
             </tbody>
+            <tfoot>
+                <tr class="table-primary">
+                    <th colspan="2">
+                        Records {{$firstRecord}} to {{$lastRecord}} of {{$weblinks->total()}}
+                    </th>
+                </tr>
+            </tfoot>
         </table>
-        {{-- {!! $data->weblinks->links('pagination::bootstrap-4') !!} --}}{{-- 'pagination::bootstrap-4' --}}
-        {{-- {!! $weblinks->links() !!} --}}
+
+        @if($weblinks->links()->paginator->hasPages())
+            {{ $weblinks->onEachSide(1)->appends(['search_url' => $domain])->links('pagination::bootstrap-4') }}
+        @endif
+        
     @endif
 @endsection

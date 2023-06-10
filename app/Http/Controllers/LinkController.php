@@ -30,40 +30,31 @@ class LinkController extends Controller
         /* Initialize UI values */
         $domainName = $fields['search_url'];
         $domainExists = false; //flag to notify of exisitng url in database
-        $dbLinks = [];
-        $errors = null;
-        $message = null;
-        $timing = null; //by default do not show this status in UI, unless value is set by crawler
-        $statuses = null; //optional foramtted string to display link statuses and process timing
-        $result = null;
-
-        $crawlerStatus = null;
+        $dbLinks = []; //links retrieved from database
+        $crawlerStatus = null; //crawler response object
+        $perPage = 30; //records to show per page
         
-
         $method = $request->method();
         switch($method){
+            /* Fires on paginator navigation */
+            case 'GET':
+                $dbLinks = Link::where('web_domain', '=', $domainName)->paginate($perPage);
+                break;
+
             /* Fires when requested to retrieve links from selected url */
             case 'POST':
+                /* Retirieve all records of provided url if it exists in database */
+                $dbLinks = Link::where('web_domain', '=', $domainName)->paginate($perPage);
                 
-                /* Attempt to retirieve all records of this domain name if exists in database */
-                $dbLinks = Link::where('web_domain', '=', $domainName)->get();
-                //dd($dbLinks);
-                /* URL found, set optional refresh */
                 if($dbLinks->count() > 0){
-                    //$pageData['links'] = $dbLinks;
-                    //$message = 'URL found in database, click to refresh';
+                    /* Flag to show the corresponding message when url found in database */
                     $domainExists = true;
                 } else {
-                    
+                    /* Run the crawler and save to database */
                     $crawlerStatus = $this->runCrawler($domainName, $depth);
-                    //dd($crawlerStatus);
+                    
                     /* Retrieve the newly created records */
-                    $dbLinks = Link::where('web_domain', '=', $domainName)->get();
-                    
-                    //$errors = $result->errors;
-                    //$timing = $result->timing;
-                    
-                    
+                    $dbLinks = Link::where('web_domain', '=', $domainName)->paginate($perPage);
                 }
                 break;
 
@@ -71,20 +62,28 @@ class LinkController extends Controller
             case 'PUT':
                 /* Remove previous database records of this domain */
                 $deleted = $this->deleteDomain($domainName);
-                /* Run the clawer and save the new records for this domain and selected depth */
+
+                /* Run the crawler and save to database */
                 $crawlerStatus = $this->runCrawler($domainName, $depth);
                 
                 /* Retrieve the newly created records */
-                $dbLinks = Link::where('web_domain', '=', $domainName)->get();
-                
-                //$errors = $result->errors;
-                //$timing = $result->timing;
+                $dbLinks = Link::where('web_domain', '=', $domainName)->paginate($perPage);
                 break;
         }
 
-        if($result){
-            $statuses = 'Found ' .$result->liveLinks . ' live links and ' .$result->deadLinks . ' dead links.';
-            $statuses .= 'Crawler took ' .$result->crawlTiming . ' sec. and Cleanup took ' .$result->cleanupTiming . ' sec.';
+        /* Prepare paginator values for custom display */
+        if(!$request->page || $request->page == 1){
+            /* Handle 1st page */
+            $firstRecord = 1;
+            $lastRecord = $perPage;
+        } else {
+            /* Handle 2nd page and up */
+            $firstRecord = ($request->page - 1) * $perPage + 1;
+            $lastRecord = $firstRecord + $perPage - 1;
+        }
+        /* Handle last page */
+        if($lastRecord > $dbLinks->total()){
+            $lastRecord = $dbLinks->total();
         }
 
         return view('links', [
@@ -97,11 +96,13 @@ class LinkController extends Controller
             'cleanupTiming' => ($crawlerStatus) ? $crawlerStatus->cleanupTiming : null,
             'liveLinks' => ($crawlerStatus) ? $crawlerStatus->liveLinks : null,
             'deadLinks' => ($crawlerStatus) ? $crawlerStatus->deadLinks : null,
-        ]);
+            'firstRecord' => $firstRecord,
+            'lastRecord' => $lastRecord,
+        ])->with('idx', (request()->input('page', 1) - 1) * $perPage);
     }
 
     /**
-     * Excecute the crawler class
+     * Handle the web crawler and store the results
      *
      * @param string $domain
      * @param integer $depth
@@ -109,8 +110,6 @@ class LinkController extends Controller
      */
     private function runCrawler($domain, $depth){
         $webCrawler = new WebLinkCrawler();
-        
-        /* Run the crawler and get response object with data and statuses */
         $crawlResponse = $webCrawler->processWebLinks($domain, $depth);
         
         /* If crawler ran successfully, insert the data */
@@ -119,7 +118,6 @@ class LinkController extends Controller
                 $this->storeLink($domain, $link);
             }
         }
-
         return $crawlResponse;
     }
 
@@ -167,5 +165,4 @@ class LinkController extends Controller
         $deleteCount = Link::where('web_domain', $domainName)->delete();
         return $deleteCount;
     }
-
 }
